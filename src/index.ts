@@ -46,10 +46,10 @@ function getTenantConnectionPool(){
     });
 }
 
-async function addRow(pool: Connection, tenantId: number, text: string){
+async function addRow(pool: Connection, tenantId: number, text: string, rowTenantId: number){
     await TenantAwareQueryBuilder.query(pool, tenantId, `
         insert into test (tenant_id, text) values ($1, $2);
-    `, [tenantId, text]);
+    `, [rowTenantId, text]);
 }
 
 async function getAll(pool: Connection, tenantId: number){
@@ -62,8 +62,8 @@ async function run(){
     const connectionPool = await getTenantConnectionPool();
     await queryWithoutTenantParameter(connectionPool);
 
-    await addRow(connectionPool, 1, 'a');
-    await addRow(connectionPool, 2, 'b');
+    await addRow(connectionPool, 1, 'a', 1);
+    await addRow(connectionPool, 2, 'b', 2);
     
     const tenant1Data = await getAll(connectionPool, 1);
     console.log('tenant 1 data',  tenant1Data);
@@ -72,6 +72,8 @@ async function run(){
     console.log('tenant 2 data', tenant2Data);
 
     await queryWithoutTenantParameter(connectionPool);
+
+    await insertRowForAnotherTenant(connectionPool);
 }
 
 async function queryWithoutTenantParameter(connectionPool: Connection){
@@ -86,6 +88,19 @@ async function queryWithoutTenantParameter(connectionPool: Connection){
         }
     }
 }
+
+async function insertRowForAnotherTenant(connectionPool: Connection){
+    /** RLS blocks 'tenant_user' from adding rows to a tenant different than tenant.id */
+    try{
+        await addRow(connectionPool, 1, 'asd', 2);
+        throw 'should have thrown error';
+    }catch(err){
+        if(err === 'should have thrown error'){
+            throw err;
+        }
+    }
+}
+
 run().then(() => {
     console.log('\nALL GOOD');
     process.exit(0);
