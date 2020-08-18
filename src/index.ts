@@ -66,10 +66,10 @@ async function run(){
     await addRow(connectionPool, 2, 'b');
     
     const tenant1Data = await getAll(connectionPool, 1);
-    console.log(tenant1Data);
+    console.log('tenant 1 data',  tenant1Data);
 
     const tenant2Data = await getAll(connectionPool, 2);
-    console.log(tenant2Data);
+    console.log('tenant 2 data', tenant2Data);
 
     await queryWithoutTenantParameter(connectionPool);
 }
