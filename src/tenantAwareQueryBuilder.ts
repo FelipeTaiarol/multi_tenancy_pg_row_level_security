@@ -8,7 +8,7 @@ export class TenantAwareQueryBuilder<T> extends SelectQueryBuilder<T>{
         try{
             return await queryRunner.query(query, parameters);
         }finally{
-            await this.releaseConnection(queryRunner);
+            await TenantAwareQueryBuilder.releaseConnection(queryRunner);
         }
     }
 
@@ -19,7 +19,7 @@ export class TenantAwareQueryBuilder<T> extends SelectQueryBuilder<T>{
             instance._queryRunner = queryRunner;
             return instance;
         }catch(err){
-            await this.releaseConnection(queryRunner);
+            await TenantAwareQueryBuilder.releaseConnection(queryRunner);
             throw err
         }
     }
@@ -35,22 +35,29 @@ export class TenantAwareQueryBuilder<T> extends SelectQueryBuilder<T>{
         await queryRunner.query(`set tenant.id to ${tenantId}`, []);
     }
 
+    private static async releaseConnection(queryRunner: QueryRunner){
+        await TenantAwareQueryBuilder.resetTenantId(queryRunner);
+        await queryRunner.release();
+    }
+
+    private static async resetTenantId(queryRunner: QueryRunner){
+        await queryRunner.query(`reset tenant.id`);
+    }
+
     private constructor(connection: Connection){
         super(connection);
     }
 
-    private static async releaseConnection(queryRunner: QueryRunner){
-        await queryRunner.query(`reset tenant.id`);
-        await queryRunner.release();
-    }
-
     async getRawAndEntities<T = any>(): Promise<any> {
-        const result = await super.getRawAndEntities();
-        /** 
-         * There is a small change of a race condition here.
-         * getRawAndEntities already released the connection but we still need to reset this configuration parameter;
+        /**
+         * Trying to make sure that the 'tenant.id' connection paramter is removed from the connection before
+         * the connection is released to the pool.
          */
-        await this._queryRunner.connection.query(`reset tenant.id`);
+        const getData = super.getRawAndEntities();
+        const resetParameter = TenantAwareQueryBuilder.resetTenantId(this._queryRunner);
+
+        const result = await getData;
+        await resetParameter;
         return result;
     }
 
