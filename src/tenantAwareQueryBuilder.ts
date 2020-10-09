@@ -1,33 +1,17 @@
 import { SelectQueryBuilder, Connection, QueryRunner } from "typeorm";
 
 export class TenantAwareQueryBuilder<T> extends SelectQueryBuilder<T>{
-    private _queryRunner: QueryRunner;
-
+    private readonly tenantId: number;
+    
     static async query(connection: Connection, tenantId: number, query: string, parameters: any[]){
-        const queryRunner = await TenantAwareQueryBuilder.getQueryRunner(connection, tenantId);
+        const queryRunner = connection.createQueryRunner();
         try{
+            await TenantAwareQueryBuilder.setTenantId(queryRunner, tenantId);
             return await queryRunner.query(query, parameters);
         }finally{
-            await TenantAwareQueryBuilder.releaseConnection(queryRunner);
+            await TenantAwareQueryBuilder.resetTenantId(queryRunner);
+            await queryRunner.release();
         }
-    }
-
-    static async create<T>(connection: Connection, tenantId: number): Promise<SelectQueryBuilder<T>>{
-        const queryRunner = await TenantAwareQueryBuilder.getQueryRunner(connection, tenantId);
-        try{
-            const instance = new TenantAwareQueryBuilder<T>(connection);
-            instance._queryRunner = queryRunner;
-            return instance;
-        }catch(err){
-            await TenantAwareQueryBuilder.releaseConnection(queryRunner);
-            throw err
-        }
-    }
-
-    static async getQueryRunner(connection: Connection, tenantId: number): Promise<QueryRunner>{
-        const queryRunner = connection.createQueryRunner();
-        await TenantAwareQueryBuilder.setTenantId(queryRunner, tenantId);
-        return queryRunner;
     }
 
     static async setTenantId(queryRunner: QueryRunner, tenantId: number){
@@ -35,33 +19,23 @@ export class TenantAwareQueryBuilder<T> extends SelectQueryBuilder<T>{
         await queryRunner.query(`set tenant.id to ${tenantId}`, []);
     }
 
-    private static async releaseConnection(queryRunner: QueryRunner){
-        await TenantAwareQueryBuilder.resetTenantId(queryRunner);
-        await queryRunner.release();
-    }
-
     private static async resetTenantId(queryRunner: QueryRunner){
         await queryRunner.query(`reset tenant.id`);
+        queryRunner['TENANT_ID'] = undefined;
     }
 
-    private constructor(connection: Connection){
+    constructor(connection: Connection, tenantId: number){
         super(connection);
+        this.tenantId = tenantId;
     }
 
-    async getRawAndEntities<T = any>(): Promise<any> {
-        /**
-         * Trying to make sure that the 'tenant.id' connection paramter is removed from the connection before
-         * the connection is released to the pool.
-         */
-        const getData = super.getRawAndEntities();
-        const resetParameter = TenantAwareQueryBuilder.resetTenantId(this._queryRunner);
-
-        const result = await getData;
-        await resetParameter;
-        return result;
-    }
-
-    obtainQueryRunner(){
-        return this._queryRunner;
+    /**
+     * Overrides the methods to set the 'tenant.id' connection parameter.
+     */
+    protected async executeEntitiesAndRawResults(queryRunner: QueryRunner): Promise<{ entities: any[], raw: any[] }> {
+        await queryRunner.query(`set tenant.id to ${this.tenantId}`, []);
+        const data = await super.executeEntitiesAndRawResults(queryRunner);
+        await TenantAwareQueryBuilder.resetTenantId(queryRunner);
+        return data;
     }
 }

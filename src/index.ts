@@ -63,7 +63,7 @@ async function addRow(pool: Connection, tenantId: number, text: string, rowTenan
 }
 
 async function getAll(pool: Connection, tenantId: number){
-    const qb = await TenantAwareQueryBuilder.create(pool, tenantId);
+    const qb = new TenantAwareQueryBuilder(pool, tenantId);
     return qb.select('t').from(ProjectRow, 't').getMany();
 }
 
