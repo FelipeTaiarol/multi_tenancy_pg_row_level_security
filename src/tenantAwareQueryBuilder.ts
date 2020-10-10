@@ -30,7 +30,7 @@ export class TenantAwareQueryBuilder<T> extends SelectQueryBuilder<T>{
     }
 
     /**
-     * Overrides the methods to set the 'tenant.id' connection parameter.
+     * Overrides the method to set the 'tenant.id' connection parameter.
      */
     protected async executeEntitiesAndRawResults(queryRunner: QueryRunner): Promise<{ entities: any[], raw: any[] }> {
         await TenantAwareQueryBuilder.setTenantId(queryRunner, this.tenantId);
