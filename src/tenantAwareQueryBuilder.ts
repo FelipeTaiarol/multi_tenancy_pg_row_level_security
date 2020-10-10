@@ -1,8 +1,6 @@
 import { SelectQueryBuilder, Connection, QueryRunner } from "typeorm";
 
 export class TenantAwareQueryBuilder<T> extends SelectQueryBuilder<T>{
-    private readonly tenantId: number;
-    
     static async query(connection: Connection, tenantId: number, query: string, parameters: any[]){
         const queryRunner = connection.createQueryRunner();
         try{
@@ -24,9 +22,8 @@ export class TenantAwareQueryBuilder<T> extends SelectQueryBuilder<T>{
         queryRunner['TENANT_ID'] = undefined;
     }
 
-    constructor(connection: Connection, tenantId: number){
+    constructor(connection: Connection, private readonly tenantId: number){
         super(connection);
-        this.tenantId = tenantId;
     }
 
     /**
