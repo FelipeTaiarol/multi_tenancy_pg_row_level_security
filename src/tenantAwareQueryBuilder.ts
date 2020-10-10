@@ -1,4 +1,5 @@
 import { SelectQueryBuilder, Connection, QueryRunner } from "typeorm";
+import { Query } from "typeorm/driver/Query";
 
 export class TenantAwareQueryBuilder<T> extends SelectQueryBuilder<T>{
     static async query(connection: Connection, tenantId: number, query: string, parameters: any[]){
@@ -29,9 +30,9 @@ export class TenantAwareQueryBuilder<T> extends SelectQueryBuilder<T>{
     /**
      * Overrides the method to set the 'tenant.id' connection parameter.
      */
-    protected async executeEntitiesAndRawResults(queryRunner: QueryRunner): Promise<{ entities: any[], raw: any[] }> {
+    protected async loadRawResults(queryRunner: QueryRunner){
         await TenantAwareQueryBuilder.setTenantId(queryRunner, this.tenantId);
-        const data = await super.executeEntitiesAndRawResults(queryRunner);
+        const data = await super.loadRawResults(queryRunner);
         await TenantAwareQueryBuilder.resetTenantId(queryRunner);
         return data;
     }
